@@ -1,0 +1,110 @@
+package rules
+ 
+import testresource.Machine;
+import testresource.BaseRequirement;
+import testresource.DiscreteRequirement;
+import testresource.HighMemory;
+import testresource.LowMemory;
+import testresource.MostPopular;
+import testresource.GreaterThan;
+import testresource.LowerThan;
+import testresource.ValueRequirement;
+import testresource.HasRequirement;
+import testresource.Match;
+ 
+dialect "java"
+ 
+rule "Remove machines without capabilities if there is any requirement."
+    when    
+        requirement: BaseRequirement()      
+        machine: Machine(capabilities.empty == true)      
+    then    
+        retract(machine);
+end
+
+rule "Remove machines without value capabilities if there is a value requirement."
+    when    
+        requirement: BaseRequirement() 
+        machine: Machine(!(capabilities contains requirement))
+    then    
+        retract(machine);
+end
+
+rule "Discrete requirements are mandatory."
+    when    
+        requirement: DiscreteRequirement()
+        machine: Machine(!(capabilities contains requirement))
+    then
+        retract(machine);
+end
+
+rule "High memory requirement."
+    when    
+        requirement: HighMemory()  
+    then
+        insert(new GreaterThan(new ValueRequirement("Memory", 4000)));
+end
+
+rule "Low memory requirement."
+    when    
+        requirement: LowMemory()  
+    then
+        insert(new LowerThan(new ValueRequirement("Memory", 1000)));
+end
+
+rule "Exact value requirement."
+    when    
+        requirement: ValueRequirement()      
+        machine: Machine((capabilities contains requirement))
+        capability: ValueRequirement() from machine.getCapabilities()
+        Boolean(booleanValue == true) from capability.getValue() != requirement.getValue()
+    then    
+        retract(machine);
+end
+
+rule "Greater than requirement. Remove machines without capability."
+    when    
+        requirement: GreaterThan() 
+        machine: Machine(!(capabilities contains requirement.getValue()))
+    then    
+        retract(machine);
+end
+
+rule "Greater than requirement."
+    when    
+        requirement: GreaterThan()      
+        innerRequirement:  ValueRequirement() from requirement.getValue()
+        machine: Machine((capabilities contains innerRequirement))
+        capability: ValueRequirement() from machine.getCapabilities()
+        Boolean(booleanValue == true) from capability.getValue() < innerRequirement.getValue()
+    then    
+        retract(machine);
+end
+
+rule "Lower than requirement. Remove machines without capability."
+    when    
+        requirement: LowerThan() 
+        machine: Machine(!(capabilities contains requirement.getValue()))
+    then    
+        retract(machine);
+end
+
+rule "Lower than requirement."
+    when    
+        requirement: LowerThan()      
+        innerRequirement:  ValueRequirement() from requirement.getValue()
+        machine: Machine((capabilities contains innerRequirement))
+        capability: ValueRequirement() from machine.getCapabilities()
+        Boolean(booleanValue == true) from capability.getValue() > innerRequirement.getValue()
+    then    
+        retract(machine);
+end
+
+rule "Most popular phone in us."
+    when    
+        ValueRequirement(getId() == "DeviceType" && getValue() == "Phone")
+        && ValueRequirement(getId() == "Market", getValue() == "US")
+        && MostPopular()               
+    then    
+        insert(new ValueRequirement("DeviceModel", "Samsung Galaxy"));
+end
